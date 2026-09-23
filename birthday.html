@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Birthdayly — For You 🎂</title>
+<link rel="stylesheet" href="birthday.css">
+</head>
+<body class="theme-romantic">
+<div class="ambient a1"></div><div class="ambient a2"></div>
+<main class="experience">
+  <section class="screen-stage intro-stage" id="introStage">
+    <div class="eyebrow">A LITTLE SURPRISE FOR YOU ✨</div>
+    <h1>Happy Birthday,<br><span id="finalName">Someone Special</span> 🎂</h1>
+    <p>Ada sesuatu yang sengaja dibuat khusus buat kamu.</p>
+    <button id="openBtn">Buka Pesannya 💌</button>
+  </section>
+
+  <section class="screen-stage message-stage" id="messageStage">
+    <div class="content-wrap">
+      <div class="photo"><img id="finalPhoto" alt="Foto penerima"><div id="placeholder">📸</div></div>
+      <span class="label">A MESSAGE FOR YOU</span>
+      <p class="main-message" id="finalMessage">Selamat ulang tahun!</p>
+      <div class="player">
+        <button id="playBtn" class="disc" type="button" aria-label="Putar atau jeda musik"><img id="coverPhoto" alt="Cover musik"></button>
+        <div class="track"><small>NOW PLAYING</small><strong id="trackName">Your Birthday Song ♫</strong><div class="bar"><span id="progress"></span></div></div>
+        <span id="time">0:00</span>
+        <audio id="audio" preload="auto"></audio>
+      </div>
+      <button id="endingBtn" class="next-btn" type="button">Lanjut ✨</button>
+    </div>
+  </section>
+
+  <section class="screen-stage ending-stage" id="endingStage">
+    <div class="ending-heart">♥</div>
+    <div class="eyebrow">A LITTLE NOTE FOR YOU</div>
+    <h2 id="finalEnding">Semoga satu tahun ke depan punya lebih banyak alasan untuk bahagia. 💗</h2>
+    <small>Made with Birthdayly ✨</small>
+  </section>
+</main>
+<script src="birthday.js"></script>
+</body>
+</html>

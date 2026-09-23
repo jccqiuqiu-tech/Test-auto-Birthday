@@ -1,0 +1,16 @@
+<!doctype html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Birthdayly — Buat Kejutan</title><link rel="stylesheet" href="create.css"></head><body>
+<header><a class="brand" href="index.html">Birthdayly<span>.</span></a><a href="index.html">← Kembali</a></header>
+<main><section class="editor"><small>BIRTHDAYLY STUDIO</small><h1>Bikin kejutan versi kamu.</h1><p>Isi di kiri, hasilnya langsung kelihatan di preview.</p>
+<label>01 · Nama penerima<input id="name" maxlength="30" placeholder="Contoh: Alika"></label>
+<label>02 · Foto<label class="upload" for="photo">📷 &nbsp; Pilih foto <small>JPG / PNG · maks. 5 MB</small></label><input id="photo" type="file" accept="image/*" hidden></label>
+<label>03 · Ucapan<textarea id="msg" placeholder="Tulis ucapan manis, lucu, atau random..."></textarea><small><span id="count">0</span>/500 kata</small></label>
+<label>04 · Musik<label class="upload" for="music">♫ &nbsp; <span id="musicName">Pilih musik</span><small>MP3 / WAV · opsional</small></label><input id="music" type="file" accept="audio/*" hidden></label>
+<label>05 · Kata-kata penutup<label class="upload" for="ending">✍️ &nbsp; Tulis penutup sendiri</label><textarea id="ending" placeholder="Contoh: Makasih sudah jadi bagian dari cerita aku... 💗"></textarea><small><span id="endingCount">0</span>/1000 kata</small></label>
+<label>06 · Tema<div class="themes"><button type="button" class="theme active" data-t="romantic">❤️<small>Romantic</small></button><button type="button" class="theme" data-t="cute">🧸<small>Cute</small></button><button type="button" class="theme" data-t="cinematic">✦<small>Cinematic</small></button></div></label>
+<button id="previewBtn" class="mainbtn">Buat Halaman Birthday 🎁</button></section>
+<section class="preview"><div class="live">● LIVE PREVIEW <span>Mobile view</span></div>
+<div class="phone"><div class="speaker"></div><div id="screen" class="screen romantic"><i>✦</i><article><small>A LITTLE SURPRISE FOR YOU</small><h2>Happy<br><b>Birthday!</b></h2><div class="photo"><img id="img" hidden><span id="placeholder">📸</span></div><h3 id="nameOut">Your Name</h3><p id="msgOut">Tulis ucapanmu di sebelah kiri dan lihat kejutannya muncul di sini.</p>
+<div class="music-player"><button id="playBtn" type="button" aria-label="Putar musik">▶</button><div class="track"><strong id="songOut">Your birthday song</strong><div class="bar"><span id="progress"></span></div></div><span id="time">0:00</span></div>
+<div>♡ ✦ ♡</div></article></div><div class="home"></div></div><p>Preview di samping menampilkan tampilan halaman birthday kamu.</p></section></main>
+<div id="modal"><div><b>🎁</b><h2>Siap bikin halaman? 🎉</h2><p>Data kamu akan dikirim ke halaman Birthdayly final. Ini masih versi prototype lokal.</p><button id="close">Buka Halaman ✨</button></div></div>
+<audio id="audio" preload="metadata"></audio><script src="create.js"></script></body></html>
