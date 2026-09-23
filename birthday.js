@@ -1,6 +1,5 @@
 const q=new URLSearchParams(location.search);
-let saved={};
-try{saved=JSON.parse(sessionStorage.getItem("birthdaylyData")||"{}");}catch(e){saved={};}
+const birthdayId=q.get("id");
 
 const finalName=document.getElementById("finalName");
 const finalMessage=document.getElementById("finalMessage");
@@ -10,7 +9,7 @@ const placeholder=document.getElementById("placeholder");
 const trackName=document.getElementById("trackName");
 const finalEnding=document.getElementById("finalEnding");
 const audio=document.getElementById("audio");
-audio.loop=true; // musik terus berjalan sampai user menekan pause
+audio.loop=true;
 const playBtn=document.getElementById("playBtn");
 const progress=document.getElementById("progress");
 const time=document.getElementById("time");
@@ -20,20 +19,6 @@ const introStage=document.getElementById("introStage");
 const messageStage=document.getElementById("messageStage");
 const endingStage=document.getElementById("endingStage");
 
-const name=saved.name||q.get("name");
-const msg=saved.message||q.get("message");
-const photo=saved.photo||q.get("photo");
-const theme=saved.theme||q.get("theme")||"romantic";
-const musicName=saved.musicName||q.get("musicName");
-const ending=saved.ending||q.get("ending");
-const musicKey=saved.musicKey||"";
-const photoKey=saved.photoKey||"";
-
-if(name)finalName.textContent=name;
-if(msg)finalMessage.textContent=msg;
-if(ending)finalEnding.textContent=ending;
-document.body.className="theme-"+theme;
-
 function showPhoto(src){
   if(!src)return false;
   finalPhoto.src=src;
@@ -41,78 +26,64 @@ function showPhoto(src){
   placeholder.style.display="none";
   coverPhoto.src=src;
   coverPhoto.style.display="block";
-  coverPhoto.setAttribute("src",src);
   coverPhoto.style.visibility="visible";
   coverPhoto.style.opacity="1";
   return true;
 }
 
+async function loadBirthday(){
+  if(!birthdayId){
+    finalName.textContent="Birthdayly";
+    finalMessage.textContent="Link birthday-nya belum lengkap bro 😅";
+    return;
+  }
 
-if(musicName)trackName.textContent=musicName;
+  const {data,error}=await birthdaySupabase
+    .from("birthday_pages")
+    .select("id,name,message,ending,theme,photo_path,music_path,music_name")
+    .eq("id",birthdayId)
+    .maybeSingle();
 
-function openDB(){return new Promise((resolve,reject)=>{
-  const req=indexedDB.open("birthdaylyDB",1);
-  req.onupgradeneeded=()=>req.result.createObjectStore("files");
-  req.onsuccess=()=>resolve(req.result);
-  req.onerror=()=>reject(req.error);
-});}
+  if(error){
+    console.error(error);
+    finalMessage.textContent="Data birthday gagal dimuat. Coba buka link-nya lagi ya bro 😅";
+    return;
+  }
 
-async function loadPhoto(){
-  // Jalur utama: data URL yang sudah dikompres saat upload.
-  if(photo && showPhoto(photo)) return;
+  if(!data){
+    finalName.textContent="Birthdayly";
+    finalMessage.textContent="Halaman birthday ini tidak ditemukan atau link-nya salah. 😅";
+    return;
+  }
 
-  // Fallback: ambil Blob foto dari IndexedDB.
-  if(!photoKey) return;
-  try{
-    const db=await openDB();
-    const blob=await new Promise((resolve,reject)=>{
-      const tx=db.transaction("files","readonly");
-      const req=tx.objectStore("files").get(photoKey);
-      req.onsuccess=()=>resolve(req.result);
-      req.onerror=()=>reject(req.error);
-    });
-    db.close();
-    if(blob instanceof Blob){
-      const reader=new FileReader();
-      reader.onload=()=>showPhoto(reader.result);
-      reader.readAsDataURL(blob);
-    }
-  }catch(err){console.error("Photo load failed:",err);}
-}
+  finalName.textContent=data.name||"Someone Special";
+  finalMessage.textContent=data.message||"";
+  finalEnding.textContent=data.ending||"";
+  document.body.className="theme-"+(data.theme||"romantic");
+  trackName.textContent=data.music_name||"Your birthday song";
 
+  if(data.photo_path){
+    const {data:photo}=birthdaySupabase.storage.from("birthday-media").getPublicUrl(data.photo_path);
+    showPhoto(photo.publicUrl);
+  }
 
-async function loadMusic(){
-  if(!musicKey)return;
-  try{
-    const db=await openDB();
-    const blob=await new Promise((resolve,reject)=>{
-      const tx=db.transaction("files","readonly");
-      const req=tx.objectStore("files").get(musicKey);
-      req.onsuccess=()=>resolve(req.result);
-      req.onerror=()=>reject(req.error);
-    });
-    db.close();
-    if(blob){
-      audio.src=URL.createObjectURL(blob);
-      audio.load();
-      // Coba lanjut play sesegera mungkin setelah pindah dari tombol "Buat Halaman".
-      try{await audio.play();}catch(e){
-        playBtn.classList.add("needs-play");
-      }
-    }
-  }catch(err){console.error("Music load failed:",err);}
+  if(data.music_path){
+    const {data:music}=birthdaySupabase.storage.from("birthday-media").getPublicUrl(data.music_path);
+    audio.src=music.publicUrl;
+    audio.load();
+  }
 }
 
 openBtn.onclick=async()=>{
   introStage.classList.remove("active");
   messageStage.classList.add("active");
-  // Kalau browser mengizinkan, klik pembuka menjadi gesture untuk mulai musik.
-  if(audio.src&&audio.paused){try{await audio.play();}catch(e){}}
+  if(audio.src&&audio.paused){try{await audio.play();}catch(e){playBtn.classList.add("needs-play");}}
 };
 
 playBtn.onclick=async()=>{
   if(!audio.src)return;
-  if(audio.paused){try{await audio.play();}catch(e){}}else audio.pause();
+  if(audio.paused){try{await audio.play();}catch(e){}}
+  else audio.pause();
 };
 
 endingBtn.onclick=()=>{
@@ -133,5 +104,4 @@ audio.onended=()=>{progress.style.width="0%";time.textContent="0:00";};
 introStage.classList.add("active");
 messageStage.classList.remove("active");
 endingStage.classList.remove("active");
-loadPhoto();
-loadMusic();
+loadBirthday();

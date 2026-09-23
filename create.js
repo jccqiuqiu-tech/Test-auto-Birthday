@@ -3,45 +3,12 @@ const name=$("name"),msg=$("msg"),img=$("img"),placeholder=$("placeholder"),
 screen=$("screen"),modal=$("modal"),audio=$("audio"),play=$("playBtn"),
 progress=$("progress"),time=$("time"),ending=$("ending");
 
-const DB_NAME="birthdaylyDB";
-const STORE="files";
-
-function openDB(){
-  return new Promise((resolve,reject)=>{
-    const req=indexedDB.open(DB_NAME,1);
-    req.onupgradeneeded=()=>req.result.createObjectStore(STORE);
-    req.onsuccess=()=>resolve(req.result);
-    req.onerror=()=>reject(req.error);
-  });
-}
-
-async function saveFile(key,blob){
-  const db=await openDB();
-  return new Promise((resolve,reject)=>{
-    const tx=db.transaction(STORE,"readwrite");
-    tx.objectStore(STORE).put(blob,key);
-    tx.oncomplete=()=>{db.close();resolve()};
-    tx.onerror=()=>{db.close();reject(tx.error)};
-  });
-}
-
-async function fileToDataURL(file){
-  return new Promise((resolve,reject)=>{
-    const r=new FileReader();
-    r.onload=()=>resolve(r.result);
-    r.onerror=()=>reject(r.error);
-    r.readAsDataURL(file);
-  });
-}
-
 name.oninput=()=>$("nameOut").textContent=name.value.trim()||"Your Name";
 
 function wordCount(text){return text.trim()?text.trim().split(/\s+/).length:0;}
 function limitWords(textarea,maxWords,counter){
   const words=textarea.value.trim()?textarea.value.trim().split(/\s+/):[];
-  if(words.length>maxWords){
-    textarea.value=words.slice(0,maxWords).join(" ")+" ";
-  }
+  if(words.length>maxWords) textarea.value=words.slice(0,maxWords).join(" ")+" ";
   counter.textContent=wordCount(textarea.value);
 }
 msg.oninput=()=>{
@@ -50,10 +17,14 @@ msg.oninput=()=>{
 };
 ending.oninput=()=>limitWords(ending,1000,$("endingCount"));
 
+let selectedMusic=null;
+let selectedPhotoBlob=null;
+let selectedPhotoData="";
+
 $("photo").onchange=e=>{
   const f=e.target.files[0];
   if(!f)return;
-  if(!f.type.startsWith("image/")){ alert("Pilih file gambar ya bro 😎"); e.target.value=""; return; }
+  if(!f.type.startsWith("image/")){alert("Pilih file gambar ya bro 😎");e.target.value="";return;}
   const r=new FileReader();
   r.onload=ev=>{
     const im=new Image();
@@ -69,6 +40,7 @@ $("photo").onchange=e=>{
       img.src=selectedPhotoData;
       img.hidden=false;
       placeholder.hidden=true;
+      c.toBlob(blob=>selectedPhotoBlob=blob,"image/jpeg",0.82);
     };
     im.onerror=()=>alert("Foto tidak bisa dibaca bro 😅");
     im.src=ev.target.result;
@@ -76,37 +48,23 @@ $("photo").onchange=e=>{
   r.readAsDataURL(f);
 };
 
-let selectedMusic=null;
-let selectedPhotoData="";
-
 $("music").onchange=e=>{
   const f=e.target.files[0];
   if(!f)return;
-
+  if(!f.type.startsWith("audio/")){alert("Pilih file musik ya bro 🎵");e.target.value="";return;}
+  if(f.size>30*1024*1024){alert("Musiknya maksimal 30 MB dulu bro 😎");e.target.value="";return;}
   selectedMusic=f;
   audio.src=URL.createObjectURL(f);
   $("musicName").textContent=f.name;
-  $("songOut").textContent=f.name.replace(/\.[^.]+$/,"");
+  $("songOut").textContent=f.name.replace(/\.[^.]+$/," ");
   audio.load();
   play.textContent="▶";
 };
 
 play.onclick=async()=>{
-  if(!audio.src){
-    alert("Upload musik dulu bro 🎵");
-    return;
-  }
-  if(audio.paused){
-    try{
-      await audio.play();
-      play.textContent="❚❚";
-    }catch(err){
-      alert("Browser menolak pemutaran. Klik tombol ▶ lagi ya.");
-    }
-  }else{
-    audio.pause();
-    play.textContent="▶";
-  }
+  if(!audio.src){alert("Upload musik dulu bro 🎵");return;}
+  if(audio.paused){try{await audio.play();play.textContent="❚❚";}catch(err){alert("Browser menolak pemutaran. Klik tombol ▶ lagi ya.");}}
+  else{audio.pause();play.textContent="▶";}
 };
 
 audio.addEventListener("timeupdate",()=>{
@@ -116,12 +74,7 @@ audio.addEventListener("timeupdate",()=>{
   const s=Math.floor(audio.currentTime%60).toString().padStart(2,"0");
   time.textContent=m+":"+s;
 });
-
-audio.addEventListener("ended",()=>{
-  play.textContent="▶";
-  progress.style.width="0%";
-  time.textContent="0:00";
-});
+audio.addEventListener("ended",()=>{play.textContent="▶";progress.style.width="0%";time.textContent="0:00";});
 
 document.querySelectorAll(".theme").forEach(b=>b.onclick=()=>{
   document.querySelectorAll(".theme").forEach(x=>x.classList.remove("active"));
@@ -129,44 +82,98 @@ document.querySelectorAll(".theme").forEach(b=>b.onclick=()=>{
   screen.className="screen "+b.dataset.t;
 });
 
+function makeId(){
+  if(crypto.randomUUID) return crypto.randomUUID().replaceAll("-","").slice(0,12);
+  return Math.random().toString(36).slice(2)+Date.now().toString(36);
+}
+
+function safeFileName(name){
+  return name.replace(/[^a-zA-Z0-9._-]/g,"-").slice(0,80);
+}
+
+async function uploadMedia(id){
+  let photoPath="";
+  let musicPath="";
+
+  if(selectedPhotoBlob){
+    photoPath=`photos/${id}.jpg`;
+    const {error}=await birthdaySupabase.storage.from("birthday-media").upload(photoPath,selectedPhotoBlob,{contentType:"image/jpeg",upsert:false});
+    if(error)throw error;
+  }
+
+  if(selectedMusic){
+    musicPath=`music/${id}-${safeFileName(selectedMusic.name)}`;
+    const {error}=await birthdaySupabase.storage.from("birthday-media").upload(musicPath,selectedMusic,{contentType:selectedMusic.type||"audio/mpeg",upsert:false});
+    if(error)throw error;
+  }
+
+  return {photoPath,musicPath};
+}
+
+function publicUrl(path){
+  if(!path)return "";
+  return birthdaySupabase.storage.from("birthday-media").getPublicUrl(path).data.publicUrl;
+}
+
+async function createBirthday(){
+  const activeTheme=document.querySelector(".theme.active")?.dataset.t||"romantic";
+  const id=makeId();
+  const data={
+    id,
+    name:name.value.trim()||"Someone Special",
+    message:msg.value.trim()||"Selamat ulang tahun! Semoga hari ini penuh hal-hal baik, tawa, dan kejutan kecil yang bikin senyum.",
+    ending:ending.value.trim()||"Semoga satu tahun ke depan punya lebih banyak alasan untuk bahagia. 💗",
+    theme:activeTheme,
+    musicName:selectedMusic?selectedMusic.name:""
+  };
+
+  const media=await uploadMedia(id);
+  data.photoPath=media.photoPath;
+  data.musicPath=media.musicPath;
+
+  const {error}=await birthdaySupabase.from("birthday_pages").insert(data);
+  if(error)throw error;
+
+  const base=new URL("birthday.html",location.href).href;
+  const link=`${base}?id=${encodeURIComponent(id)}`;
+  return {data,link,photoUrl:publicUrl(media.photoPath),musicUrl:publicUrl(media.musicPath)};
+}
+
 $("previewBtn").onclick=async e=>{
   e.preventDefault();
-
-  const activeTheme=document.querySelector(".theme.active")?.dataset.t||"romantic";
-  const musicKey=selectedMusic ? "music-"+Date.now()+"-"+Math.random().toString(36).slice(2) : "";
-  const photoFile=$("photo").files[0]||null;
-  const photoKey=photoFile ? "photo-"+Date.now()+"-"+Math.random().toString(36).slice(2) : "";
-
+  const btn=$("previewBtn");
+  const original=btn.textContent;
+  btn.disabled=true;
+  btn.textContent="Membuat link... ⏳";
   try{
-    if(selectedMusic){
-      await saveFile(musicKey,selectedMusic);
-    }
-    if(photoFile){
-      await saveFile(photoKey,photoFile);
-    }
-
-    const data={
-      name:name.value.trim()||"Someone Special",
-      message:msg.value.trim()||
-        "Selamat ulang tahun! Semoga hari ini penuh hal-hal baik, tawa, dan kejutan kecil yang bikin senyum.",
-      ending:ending.value.trim()||
-        "Semoga satu tahun ke depan punya lebih banyak alasan untuk bahagia. 💗",
-      theme:activeTheme,
-      photo: selectedPhotoData || (img.hidden?"":img.src),
-      photoKey,
-      musicKey,
-      musicName:selectedMusic ? selectedMusic.name : ""
-    };
-
-    sessionStorage.setItem("birthdaylyData",JSON.stringify(data));
+    const result=await createBirthday();
+    $("shareLink").value=result.link;
+    $("shareBox").hidden=false;
+    $("copyStatus").textContent="Link sudah online. Bisa dibuka dari HP/laptop lain. 🔥";
     modal.classList.add("show");
   }catch(err){
     console.error(err);
-    alert("Musiknya gagal disimpan di browser. Coba file musik yang lebih kecil ya bro 😎");
+    alert("Gagal membuat link birthday: "+(err.message||err));
+  }finally{
+    btn.disabled=false;
+    btn.textContent=original;
+  }
+};
+
+$("copyLink").onclick=async()=>{
+  const link=$("shareLink").value;
+  try{
+    await navigator.clipboard.writeText(link);
+    $("copyStatus").textContent="Link berhasil disalin bro 🔥";
+  }catch(e){
+    $("shareLink").select();
+    document.execCommand("copy");
+    $("copyStatus").textContent="Link berhasil disalin bro 🔥";
   }
 };
 
 $("close").onclick=()=>{
   modal.classList.remove("show");
-  window.location.href="birthday.html";
+  const link=$("shareLink").value;
+  if(link) window.location.href=link;
 };
